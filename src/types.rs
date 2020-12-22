@@ -3,10 +3,33 @@ use std::path::PathBuf;
 use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 
+// created this error enum to be able to return errors that don't depend on the 
+// internal implementation of this module
+//TODO: look into implementing the Error trait
+//TODO: move this into the types module to be used as a project wide error
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum Error{
+	InitialisationError,
+	AlreadyExists,
+	GeneralError,
+	NotFound
+}
+
 //TODO: move structs and impls to another more reasonable location
+#[derive(Debug)]
 pub struct Note{
 	pub creation_date: DateTime<Utc>,
 	pub content: String
+}
+
+impl Note{
+	pub fn new(content: &str) -> Self{
+		Note{
+			content: String::from(content),
+			creation_date: Utc::now()
+		}		
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -31,9 +54,9 @@ impl Project{
 	}
 
 	// 
-	pub fn insert_option(&mut self, key: &str, value: String) -> Option<String>{
+	pub fn insert_option(&mut self, key: &str, value: &str) -> Option<String>{
 		
-		self.options.insert(String::from(key), value)
+		self.options.insert(String::from(key), String::from(value))
 	}
 
 	// TODO: probably return a wrapper iterator around the btree_map::Iter<> to hide the implementation details
