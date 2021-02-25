@@ -17,7 +17,7 @@ pub enum Error{
 }
 
 //TODO: move structs and impls to another more reasonable location
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Note{
 	pub creation_date: DateTime<Utc>,
 	pub content: String

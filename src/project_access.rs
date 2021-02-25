@@ -438,6 +438,9 @@ fn setup_tables(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error>{
 
 				COMMIT;")?;	
 
+	conn.execute("INSERT INTO Options (key, value) VALUES (?, ?)
+			ON CONFLICT(key) DO UPDATE SET value=excluded.value", params!["ProjectsDir", "/home/ajani/Dropbox/code/git/"])?;
+
 	Ok(())
 } 
 

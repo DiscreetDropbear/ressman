@@ -2,14 +2,15 @@ mod project_access;
 mod project_manager;
 mod types;
 mod gui;
-
-use types::{Note, Project};
-use std::collections::BTreeMap;
+mod notes;
+mod i3;
+//use types::{Note, Project};
+//use std::collections::BTreeMap;
 
 fn main() {
-    let mut proj_mngr = project_manager::new_project_manager().unwrap();
+    let proj_mngr = project_manager::new_project_manager().unwrap();
 	
-	gui::main_loop(proj_mngr);
+	gui::main_loop(proj_mngr).unwrap();
 	/*
     // create a project
     let mut proj = Project::new("ressman", "/home/ajani/Dropbox/code/git/ressman");
