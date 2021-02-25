@@ -137,13 +137,14 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error>{
 		.map(|proj| &(*proj.name))
 		.collect();
 	
-	let res = Rofi::select_option("Project Menu", proj_names, &[Key::SuperN, Key::SuperD, Key::SuperO])?;
+	let res = Rofi::select_option("Project Menu", proj_names.clone(), &[Key::SuperN, Key::SuperD, Key::SuperO, Key::SuperP])?;
 
 	match res{
 		Response::Esc => {
 			return Ok(GuiState::MainMenu);
 		},
 		Response::Enter(idx) => {
+			proj_mngr.set_option("last_used_project", proj_names[idx].clone())?;
 			return Ok(GuiState::ManageProject(projects[idx].clone()));
 		},
 		Response::SuperN(idx) => {
@@ -153,8 +154,20 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error>{
 			return Ok(GuiState::ManageProject(projects[idx].clone()));
 		},
 		Response::SuperO(idx) =>{
+			proj_mngr.set_option("last_used_project", proj_names[idx].clone())?;
 			open_project(projects[idx].clone())
+		},
+		Response::SuperP(_) => {
+			let (_, proj_name) = proj_mngr.get_option("last_used_project")?; 
+			// TODO: change this to use a get_project method as to avoid any weird
+			// bugs related too the wanted project not being the first one in the vector
+			match proj_mngr.get_project(&proj_name)?{
+				Some(proj) => return Ok(GuiState::ManageProject(proj)),		
+				None =>  return Ok(GuiState::ProjectMenu)
+			}
+			
 		}
+
 		_ => {}
 	}
 	
@@ -248,7 +261,7 @@ fn edit_note(proj_mngr: &mut ProjectManager, project: &Project, note: &Note) -> 
 fn open_project(project: Project){
 	if project.path.exists(){
 		Command::new("terminator")
-			.current_dir(project.path)
+			.arg(format!{"--working-directory={}", project.path.to_str().unwrap()})
 			.spawn()
 			.expect("Failed to start the terminal");
 	}

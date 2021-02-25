@@ -126,6 +126,18 @@ impl ProjectAccess{
 		}
 	}
 
+	pub fn get_project(&mut self, name: &str) -> Result<Option<Project>>{
+
+		match self.internal_get_project(name){
+			Ok(project) => Ok(project),
+			Err(e) => {
+				error!("{:?}", e);
+
+				return Err(Error::from(e))
+			}
+		}
+	}
+
 	pub fn forget_project(&mut self, project: &Project) -> Result<()>{
 		match self.internal_forget_project(project){
 			Ok(_) => Ok(()),
@@ -298,6 +310,35 @@ impl ProjectAccess{
 		}
 
 		Ok(projects)
+	}
+
+	fn internal_get_project(&mut self, name: &str) -> Result<Option<Project>, rusqlite::Error>{
+			
+		// get each of the projects
+		let mut stmt = self.conn.prepare("SELECT name, path FROM Projects WHERE name=?")?;
+		let mut rows = stmt.query(params![name])?;
+		let mut project: Project;
+		match rows.next()?{
+			Some(row) => { 
+				let name : String = row.get(0)?;
+				let path : String = row.get(1)?;
+				project = Project::new(name.as_str(), path.as_str());
+			},
+			None => return Ok(None)
+		}
+		
+		// for all of the projects get their options
+		let mut stmt = self.conn.prepare("SELECT key, value FROM ProjectOptions WHERE project_id = 
+			(SELECT project_id FROM Projects WHERE name = ?)")?;
+		let mut rows = stmt.query(params![project.name])?;
+
+		while let Some(row) = rows.next()?{
+			let key: String = row.get(0)?;
+			let value: String = row.get(1)?;
+			project.insert_option(key.as_str(), value.as_str());
+		}
+
+		Ok(Some(project))
 	}
 
 	fn internal_forget_project(&mut self, project: &Project) -> Result<(), rusqlite::Error>{

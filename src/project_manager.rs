@@ -96,6 +96,12 @@ impl ProjectManager {
         Ok(projects)
     }
 
+	pub fn get_project(&mut self, project_name: &str) -> Result<Option<Project>, Error> {
+		let proj = self.proj_acc.get_project(project_name)?;
+
+		Ok(proj)
+	}
+
     pub fn create_project(&mut self, project: &mut Project) -> Result<(), Error> {
 
         self.proj_acc.add_project(project)?;
