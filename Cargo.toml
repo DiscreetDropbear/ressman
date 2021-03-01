@@ -11,3 +11,5 @@ rusqlite = {version = "0.24.2", features = ["chrono"]}
 chrono = "0.4.19"
 log = "0.4"
 i3ipc = "0.10.1"
+git2 = "0.13.17"
+regex = "1.4.3"

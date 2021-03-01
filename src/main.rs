@@ -4,12 +4,13 @@ mod types;
 mod gui;
 mod notes;
 mod i3;
+mod git;
 //use types::{Note, Project};
 //use std::collections::BTreeMap;
 
 fn main() {
-    let proj_mngr = project_manager::new_project_manager().unwrap();
-	
+  let proj_mngr = project_manager::new_project_manager().unwrap();
+
 	gui::main_loop(proj_mngr).unwrap();
 	/*
     // create a project

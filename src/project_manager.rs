@@ -28,8 +28,8 @@ impl ProjectManager {
 		Ok(self.proj_acc.set_options(options)?)
 	}
 
-	pub fn get_option(&mut self, key: &str) -> Result<(String, String), Error>{
-
+	pub fn get_option(&mut self, key: &str) -> Result<Option<(String, String)>, Error>{
+     
 		Ok(self.proj_acc.get_option(key)?)
 	}
 
@@ -39,12 +39,17 @@ impl ProjectManager {
 	}
 
 	pub fn find_new_projects(&mut self) -> Result<Vec<Project>, Error>{
+    println!("find_new_projects");
 		let projects = self.proj_acc.list_projects()?;
-		let (_, projects_dir)= self.proj_acc.get_option("ProjectsDir")?;				
-			
+		let projects_dir = match self.proj_acc.get_option("ProjectsDir")?{
+      Some((_, projects_dir)) => projects_dir,
+      None => panic!("ProjectsDir not found when finding new projects")
+    };			
+		  
+    println!("{}", projects_dir);
 		let mut dirs: HashMap<String, bool> = HashMap::new();
 		// get all folders within project_dir
-		let path = Path::new(&projects_dir);	
+		let path = Path::new(&projects_dir);
 		let iter = match path.read_dir(){
 			Ok(iter) => iter,
 			Err(e) => {
