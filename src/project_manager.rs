@@ -49,7 +49,7 @@ impl ProjectManager {
     println!("{}", projects_dir);
 		let mut dirs: HashMap<String, bool> = HashMap::new();
 		// get all folders within project_dir
-		let path = Path::new(&projects_dir);
+		let path = Path::new(&projects_dir).canonicalize().unwrap();
 		let iter = match path.read_dir(){
 			Ok(iter) => iter,
 			Err(e) => {

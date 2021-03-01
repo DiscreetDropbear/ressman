@@ -5,6 +5,7 @@ mod gui;
 mod notes;
 mod i3;
 mod git;
+mod rofi;
 //use types::{Note, Project};
 //use std::collections::BTreeMap;
 
