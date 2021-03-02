@@ -29,7 +29,7 @@ impl From<rusqlite::Error> for Error {
                 // but for now we will just assume this is true to simplify the error handling
                 return Error::AlreadyExists;
             }
-            _ => return Error::GeneralError,
+            _ => return Error::GeneralError(error.to_string()),
         }
     }
 }

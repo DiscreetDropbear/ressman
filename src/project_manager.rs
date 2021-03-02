@@ -54,9 +54,8 @@ impl ProjectManager {
 			Ok(iter) => iter,
 			Err(e) => {
 				error!("Error reading directory: {}", e);
-				return Err(Error::GeneralError);
+				return Err(Error::GeneralError(format!("Error reading directory: {}", e)));
 			}
-
 		};
 
 		for entry in iter{
@@ -64,7 +63,7 @@ impl ProjectManager {
 				Ok(entry) => entry,
 				Err(e) => {
 					error!("Error reading directory: {}", e);
-					return Err(Error::GeneralError);
+					return Err(Error::GeneralError(format!("Error reading directory: {}", e)));
 				}
 			};
 

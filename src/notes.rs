@@ -1,17 +1,21 @@
-
+use crate::types::Error;
 use std::process::Command;
 use std::{fs, path};
+use log::error;
 //use crate::neovim::NvimSession;
 
 // TODO: handle errors and tidy up code, probaly should also break this into smaller functions
 // takes in a string slice for the content of a note,
 // opens nvim within a terminal and loads in the contents of
 // the note
-pub fn open_note(note_body: &str) -> Option<String>{
+pub fn open_note(note_body: &str) -> Result<String, Error>{
     let buf_string = note_buffer_path();
     let sock_string = vim_sock_path();
 
-    fs::write(buf_string.clone(), note_body);
+    if let Err(e) = fs::write(buf_string.clone(), note_body){
+		error!("failed to write the note string to file: {}", e);
+
+	}
 
     // launch nvim
     let nvim_child = Command::new("xterm")
@@ -20,23 +24,25 @@ pub fn open_note(note_body: &str) -> Option<String>{
 
     // handle spawn errors
     let mut nvim_child = match nvim_child{
-      Ok(child) => child,
-      Err(e) => {
-
-        panic!("{:?}", e);
-      }
+		Ok(child) => child,
+		Err(e) => {
+			return Err(Error::GeneralError(format!("spawning nvim failed with error: {}", e))); 
+		}
     };
 
-    nvim_child.wait();
+    if let Err(e) = nvim_child.wait(){
+		error!("error waiting for nvim to exit: {}", e);	
+	}
 
     let buf_path = path::Path::new(&buf_string);
 
     // get buffer file contents here
+	// TODO: deal with unwraps here, turn them into proper error handling
     if buf_path.exists() {
-        return Some(String::from_utf8(fs::read(buf_path).unwrap()).unwrap());
+        return Ok(String::from_utf8(fs::read(buf_path).unwrap()).unwrap());
     }
 
-   None
+   Ok(String::from(""))
 }
 
 // find a free unix socket path for vim

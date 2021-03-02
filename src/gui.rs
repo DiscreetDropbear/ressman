@@ -1,13 +1,15 @@
 #![allow(dead_code, unused_variables)]
+use crate::git;
 use crate::notes;
 use crate::project_manager::ProjectManager;
-use crate::types::*;
-use crate::git;
 use crate::rofi::{self, Key, Response};
+use crate::types::*;
 
-use std::process::Command;
+use log::error;
 use regex::Regex;
 use std::path::Path;
+use std::process::Command;
+
 enum GuiState {
     ProjectMenu,
     NewProject,
@@ -16,37 +18,56 @@ enum GuiState {
     Exit,
 }
 
-pub fn main_loop(mut proj_mngr: ProjectManager) -> Result<(), Error> {
+// when a LRU(last recently used))project exists in the database, the project is found
+// and the manage project screen is shown. The project menu is shown when a LRU project isn't found.
+//
+// There is an infinite loop which allows the transition between different
+// screens to an arbitrary degree. 
+//
+// Any errors propogate back up to this function for logging and then the last known
+// state is used again to allow for recovery.
+pub fn main_loop(mut proj_mngr: ProjectManager) {
+    let mut state = GuiState::ProjectMenu;
+    let mut state_res = match retrieve_last_project(&mut proj_mngr) {
+        Ok(state) => match state {
+            Some(project) => Ok(GuiState::ManageProject(project)),
+            None => Ok(GuiState::ProjectMenu),
+        },
+        Err(e) => {
+            Err(e)
+        }
+    };
 
-    let mut state = match retrieve_last_project(&mut proj_mngr)?{
-      Some(project) => {GuiState::ManageProject(project)},
-      None => {GuiState::ProjectMenu}
-    };  
-
-    // find the last used project
     loop {
+        // log any errors that come up and then keep going with previous
+        // value of state
+        // TODO: make sure this won't cause a potential infinite loop
+        match state_res {
+            Ok(s) => state = s,
+            Err(e) => {
+                error!("{:?}", e)
+            }
+        };
+
         match state {
             GuiState::NewProject => {
-                state = new_project(&mut proj_mngr)?;
+                state_res = new_project(&mut proj_mngr);
             }
             GuiState::ProjectMenu => {
-                state = project_menu(&mut proj_mngr)?;
+                state_res = project_menu(&mut proj_mngr);
             }
-            GuiState::ManageProject(project) => {
-                state = manage_project(&mut proj_mngr, project)?;
+            GuiState::ManageProject(ref project) => {
+                state_res = manage_project(&mut proj_mngr, project.clone());
             }
-            GuiState::ManageNotes(project) => {
-                state = manage_note(&mut proj_mngr, project)?;
+            GuiState::ManageNotes(ref project) => {
+                state_res = manage_note(&mut proj_mngr, project.clone());
             }
             GuiState::Exit => break,
         }
     }
-
-    Ok(())
 }
 
-
-fn retrieve_last_project(proj_mngr: &mut ProjectManager) -> Result<Option<Project>, Error>{
+fn retrieve_last_project(proj_mngr: &mut ProjectManager) -> Result<Option<Project>, Error> {
     match proj_mngr.get_option("last_used_project")? {
         Some((_, proj_name)) => match proj_mngr.get_project(&proj_name)? {
             Some(proj) => Ok(Some(proj)),
@@ -65,7 +86,11 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
         "Create a new local project (Super+l)",
     ];
 
-    let res = rofi::select_option("New Project", options, &[Key::SuperS, Key::SuperC, Key::SuperL])?;
+    let res = rofi::select_option(
+        "New Project",
+        options,
+        &[Key::SuperS, Key::SuperC, Key::SuperL],
+    )?;
 
     match res {
         Response::Enter(idx) => {
@@ -88,15 +113,7 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
             }
             // clone a repo
             else if idx == 1 {
-                
-                //
-                // add the new repo into the database
-
-            // run git command to clone the repo into the project dir
-
-            // get the stdout to show to the user the output
-
-            // if the command was successfull then
+                clone_repo(proj_mngr)?;
             }
             // create project
             else if idx == 2 {
@@ -114,38 +131,40 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
     Ok(GuiState::ProjectMenu)
 }
 
-fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<(), Error>{
-  let repo_url = rofi::input("Repo Url")?;
-  
-  // get repo name
-  // TODO: use appropriate error handling here
-  let re = Regex::new(r"https://.*?/.*?/(.*)\.git|https://.*?/.*?/(.*)|git@.*/(.*)\.git").unwrap();
-  let captures = re.captures(&repo_url).unwrap();  
-  
-  let mut index: usize = 0; 
-  for i in 1..captures.len(){
-    index = index + 1;
-    if let Some(_) = captures.get(i){
-      break;
+fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<(), Error> {
+    let repo_url = rofi::input("Repo Url")?;
+
+    // get repo name
+    // TODO: use appropriate error handling here
+    let re =
+        Regex::new(r"https://.*?/.*?/(.*)\.git|https://.*?/.*?/(.*)|git@.*/(.*)\.git").unwrap();
+    let captures = re.captures(&repo_url).unwrap();
+
+    let mut index: usize = 0;
+    for i in 1..captures.len() {
+        index = index + 1;
+        if let Some(_) = captures.get(i) {
+            break;
+        }
     }
-  }
 
-  let repo_name = captures.get(index).unwrap().as_str();
-  
-  let projects_dir = match proj_mngr.get_option("ProjectsDir")? {
+    let repo_name = captures.get(index).unwrap().as_str();
 
-      Some((_, projects_dir)) => projects_dir,
-      None => panic!("option not found"), //TODO: change this to an appropriate response like showing an error and aborting
-  };
-  let repo_dir = Path::new(&projects_dir);
-  let mut repo_dir = repo_dir.to_path_buf();
-  repo_dir.push(&repo_name);
-  match git::clone_repo(&repo_url, repo_dir.as_path()){
-    Ok(v) => {} 
-    Err(e) => {println!("{:?}", e)}
-  }
+    let projects_dir = match proj_mngr.get_option("ProjectsDir")? {
+        Some((_, projects_dir)) => projects_dir,
+        None => panic!("option not found"), //TODO: change this to an appropriate response like showing an error and aborting
+    };
+    let repo_dir = Path::new(&projects_dir);
+    let mut repo_dir = repo_dir.to_path_buf();
+    repo_dir.push(&repo_name);
+    match git::clone_repo(&repo_url, repo_dir.as_path()) {
+        Ok(v) => {}
+        Err(e) => {
+            println!("{:?}", e)
+        }
+    }
 
-  Ok(())
+    Ok(())
 }
 
 fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
@@ -156,7 +175,13 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
     let res = rofi::select_option(
         "Project Menu",
         proj_names.clone(),
-        &[Key::SuperE, Key::SuperN, Key::SuperD, Key::SuperO, Key::SuperP],
+        &[
+            Key::SuperE,
+            Key::SuperN,
+            Key::SuperD,
+            Key::SuperO,
+            Key::SuperP,
+        ],
     )?;
 
     match res {
@@ -164,7 +189,7 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
             return Ok(GuiState::Exit);
         }
         Response::SuperE(_) => {
-          return Ok(GuiState::Exit);
+            return Ok(GuiState::Exit);
         }
         Response::Enter(idx) => {
             proj_mngr.set_option("last_used_project", proj_names[idx].clone())?;
@@ -175,7 +200,7 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
             return Ok(GuiState::ManageProject(projects[idx].clone()));
         }
         Response::SuperC(_) => {
-          return Ok(GuiState::NewProject);
+            return Ok(GuiState::NewProject);
         }
         Response::SuperO(idx) => {
             proj_mngr.set_option("last_used_project", proj_names[idx].clone())?;
@@ -226,7 +251,7 @@ fn manage_project(proj_mngr: &mut ProjectManager, project: Project) -> Result<Gu
         } else if idx == 4 {
             Response::SuperE(idx)
         } else {
-          return Ok(GuiState::ManageProject(project));
+            return Ok(GuiState::ManageProject(project));
         };
     }
 
@@ -248,7 +273,7 @@ fn manage_project(proj_mngr: &mut ProjectManager, project: Project) -> Result<Gu
         Response::SuperE(_) => {
             return Ok(GuiState::Exit);
         }
-        Response::Esc | Response::SuperP(_)=> {
+        Response::Esc | Response::SuperP(_) => {
             return Ok(GuiState::ProjectMenu);
         }
         _ => {}
@@ -268,9 +293,9 @@ fn manage_note(proj_mngr: &mut ProjectManager, project: Project) -> Result<GuiSt
         .iter()
         .map(|note_name| note_name.as_str())
         .collect();
-    
-    if note_names.len() == 0{
-    return Ok(GuiState::ManageProject(project))
+
+    if note_names.len() == 0 {
+        return Ok(GuiState::ManageProject(project));
     }
 
     let res = rofi::select_option("Find Note", note_names, &[Key::SuperE, Key::SuperO])?;
@@ -278,7 +303,7 @@ fn manage_note(proj_mngr: &mut ProjectManager, project: Project) -> Result<GuiSt
     match res {
         Response::Enter(idx) => {
             edit_note(proj_mngr, &project, &notes[idx])?;
-            return Ok(GuiState::Exit)
+            return Ok(GuiState::Exit);
         }
         Response::SuperE(idx) => {
             return Ok(GuiState::Exit);
@@ -291,7 +316,7 @@ fn manage_note(proj_mngr: &mut ProjectManager, project: Project) -> Result<GuiSt
 
 fn edit_note(proj_mngr: &mut ProjectManager, project: &Project, note: &Note) -> Result<(), Error> {
     let mut note = note.clone();
-    note.content = notes::open_note(&note.content).unwrap();
+    note.content = notes::open_note(&note.content)?;
     proj_mngr.update_note(&note, project)?;
     Ok(())
 }
@@ -307,40 +332,3 @@ fn open_project(project: Project) {
         panic!("The path for the project selected doesn't exist anymore. exiting!");
     }
 }
-
-
-
-
-// mapping between menu state and function
-// main_menu ->
-
-// maps between the output of a menu and the input of a function
-// the functions must return a new menu state and optionally some data
-
-/*
-depending on command line arguments open straight into project selection or main menu etc
-prompt to open a particular project if it was the last project used and it has been under an hour
-
-menu options brainstorm
-
-main menu:
-    Add new project,
-    Open Project
-
-Project menu:
-    Terminal
-    Notes
-    Manage Project
-
-Manage Project:
-    Delete Project
-    Edit Project
-
-Notes Menu:
-    Create Note,
-    Select Note,
-
-
-
-Notion of tracked projects vs un-tracked projects
-*/

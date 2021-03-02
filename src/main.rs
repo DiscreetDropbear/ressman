@@ -3,7 +3,7 @@ mod project_manager;
 mod types;
 mod gui;
 mod notes;
-mod i3;
+// mod i3;
 mod git;
 mod rofi;
 //use types::{Note, Project};
@@ -12,7 +12,7 @@ mod rofi;
 fn main() {
   let proj_mngr = project_manager::new_project_manager().unwrap();
 
-	gui::main_loop(proj_mngr).unwrap();
+	gui::main_loop(proj_mngr);
 	/*
     // create a project
     let mut proj = Project::new("ressman", "/home/ajani/Dropbox/code/git/ressman");

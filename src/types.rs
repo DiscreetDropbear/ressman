@@ -7,12 +7,13 @@ use chrono::{DateTime, Utc};
 // internal implementation of this module
 //TODO: look into implementing the Error trait
 //TODO: move this into the types module to be used as a project wide error
+//TODO: implement the fmt trait
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Error{
 	InitialisationError,
 	AlreadyExists,
-	GeneralError,
+	GeneralError(String),
 	NotFound
 }
 
