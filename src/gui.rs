@@ -113,7 +113,8 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
             }
             // clone a repo
             else if idx == 1 {
-                clone_repo(proj_mngr)?;
+                let project = clone_repo(proj_mngr)?;
+				return Ok(GuiState::ManageProject(project));
             }
             // create project
             else if idx == 2 {
@@ -131,7 +132,7 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
     Ok(GuiState::ProjectMenu)
 }
 
-fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<(), Error> {
+fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<Project, Error> {
     let repo_url = rofi::input("Repo Url")?;
 
     // get repo name
@@ -154,6 +155,7 @@ fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<(), Error> {
         Some((_, projects_dir)) => projects_dir,
         None => panic!("option not found"), //TODO: change this to an appropriate response like showing an error and aborting
     };
+
     let repo_dir = Path::new(&projects_dir);
     let mut repo_dir = repo_dir.to_path_buf();
     repo_dir.push(&repo_name);
@@ -163,8 +165,11 @@ fn clone_repo(proj_mngr: &mut ProjectManager) -> Result<(), Error> {
             println!("{:?}", e)
         }
     }
-
-    Ok(())
+	
+	let mut proj = Project::new(repo_name, repo_dir.to_str().unwrap());
+	proj.insert_option("git-repo", "true");
+	proj_mngr.create_project(&mut proj)?;	
+    Ok(proj)
 }
 
 fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
