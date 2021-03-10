@@ -87,9 +87,10 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
     ];
 
     let res = rofi::select_option(
-        "New Project",
+        None,
         options,
         &[Key::SuperS, Key::SuperC, Key::SuperL],
+		Some("Create a New Project")
     )?;
 
     match res {
@@ -100,7 +101,7 @@ fn new_project(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
                 println!("{:?}", projects);
                 for project in projects.iter_mut() {
                     let options = vec!["Add", "Skip"];
-                    let res = rofi::select_option(project.name.as_str(), options, &[])?;
+                    let res = rofi::select_option(Some(project.name.as_str()), options, &[], Some(&format!("Add project {}", project.name.as_str())))?;
                     match res {
                         Response::Enter(idx) => {
                             if idx == 0 {
@@ -178,7 +179,7 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
     let proj_names: Vec<&str> = projects.iter().map(|proj| &(*proj.name)).collect();
 
     let res = rofi::select_option(
-        "Project Menu",
+        Some("Project Menu"),
         proj_names.clone(),
         &[
             Key::SuperE,
@@ -187,6 +188,7 @@ fn project_menu(proj_mngr: &mut ProjectManager) -> Result<GuiState, Error> {
             Key::SuperO,
             Key::SuperP,
         ],
+		None
     )?;
 
     match res {
@@ -229,7 +231,7 @@ fn manage_project(proj_mngr: &mut ProjectManager, project: Project) -> Result<Gu
     ];
 
     let mut res = rofi::select_option(
-        &project.name,
+        Some(&project.name),
         options,
         &[
             Key::SuperT,
@@ -239,6 +241,7 @@ fn manage_project(proj_mngr: &mut ProjectManager, project: Project) -> Result<Gu
             Key::SuperE,
             Key::SuperP,
         ],
+		Some(&format!("Manage {}", project.name.as_str()))
     )?;
 
     // maps between the index of the options when enter is pressed and their
@@ -303,7 +306,7 @@ fn manage_note(proj_mngr: &mut ProjectManager, project: Project) -> Result<GuiSt
         return Ok(GuiState::ManageProject(project));
     }
 
-    let res = rofi::select_option("Find Note", note_names, &[Key::SuperE, Key::SuperO])?;
+    let res = rofi::select_option(None, note_names, &[Key::SuperE, Key::SuperO], Some("Find Note"))?;
 
     match res {
         Response::Enter(idx) => {

@@ -140,6 +140,22 @@ fn key_to_response(key: Key, val: usize) -> Response {
     }
 }
 
+pub fn show_msg(msg: &str){
+	// set the theme and specify the message
+	let args = vec!["-theme", "slate","-dmenu", "-mesg", msg];
+
+    let mut rofi_child = Command::new("rofi")
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+	// TODO: handle the error correctly
+    rofi_child.wait().unwrap();
+}
+
+
 // TODO: go over all functions within rofi and do proper error handling
 // turns a slice of keys into a vector of strings that are valid rofi arguments
 // that set up keybindings to the given keys
@@ -173,11 +189,12 @@ fn get_keybinding(ret_code: i32, index: usize, keybindings: &[Key]) -> Response 
 
 // return the index of the selected row
 pub fn select_option(
-    prompt: &str,
-    options: Vec<&str>,
+    prompt: Option<&str>,
+    entries: Vec<&str>,
     keybindings: &[Key],
+	msg: Option<&str>
 ) -> Result<Response, Error> {
-    let options_arr = options
+    let options_arr = entries
         .iter()
         .map(|s| String::from(*s).replace("\n", ""))
         .collect::<Vec<String>>()
@@ -188,8 +205,22 @@ pub fn select_option(
     // when rofi is in dmenu mode(using -dmenu), '-format i' means it will
     // print the index of the selected row
     args.extend_from_slice(&[
-        "-theme", "slate", "-dmenu", "-i", "-format", "i", "-p", prompt,
+        "-theme", "slate", "-dmenu", "-i", "-format", "i",
     ]);
+
+	// set the prompt next to the search bar, set it to an empty
+	// string if prompt is None as otherwise it will display 'dmenu'
+	if let Some(prompt) = prompt{
+		args.extend_from_slice(&[prompt]);
+	}
+	else{
+		args.extend_from_slice(&[""]);	
+	}
+
+	// set a message that appears bellow the search bar but above any entries
+	if let Some(msg) = msg{
+		args.extend_from_slice(&["-mesg", msg]);
+	}
 
     let mut rofi_child = Command::new("rofi")
         .args(&args)
@@ -222,7 +253,7 @@ pub fn select_option(
 // return the input of the user
 // TODO: fix up the error handling
 pub fn input(prompt: &str) -> Result<String, Error> {
-    let args = vec!["-dmenu", "-format", "f", "-p", prompt];
+    let args = vec!["-dmenu", "-format", "f", "-theme", "slate","-p", prompt];
 
     let rofi_child = Command::new("rofi")
         .args(&args)
